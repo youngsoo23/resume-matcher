@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>resume-matcher</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <h1>resume-matcher</h1>
+  <p class="subtitle">이력서 + 채용공고를 넣고 AI와 대화하며 다듬어보세요</p>
+</header>
+
+<main class="layout">
+  <section class="panel resume-panel">
+    <div class="field">
+      <div class="field-header">
+        <label for="resume-input">이력서</label>
+        <span id="resume-saved-indicator" class="saved-indicator"></span>
+      </div>
+      <div class="file-upload-row">
+        <input type="file" id="resume-file-input" accept=".txt,.md,.pdf" hidden>
+        <button id="resume-file-btn" type="button">파일 업로드 (.txt, .md, .pdf)</button>
+        <span id="resume-file-name" class="file-name"></span>
+      </div>
+      <textarea id="resume-input" placeholder="여기에 이력서 원문을 붙여넣거나 위에서 파일을 업로드하세요"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="jd-input">채용공고 (JD)</label>
+      <textarea id="jd-input" placeholder="지원하려는 채용공고 내용을 붙여넣으세요"></textarea>
+    </div>
+
+    <div class="field export-actions">
+      <button id="copy-btn" type="button">이력서 복사</button>
+      <button id="download-btn" type="button">텍스트 다운로드</button>
+    </div>
+
+    <div class="field">
+      <div class="field-header">
+        <label>버전 기록</label>
+        <button id="clear-versions-btn" type="button" class="link-btn">전체 삭제</button>
+      </div>
+      <ul id="version-list" class="version-list"></ul>
+    </div>
+  </section>
+
+  <section class="panel chat-panel">
+    <div id="chat-messages" class="chat-messages"></div>
+    <form id="chat-form" class="chat-form">
+      <textarea id="chat-input" placeholder="예: 이 JD에 맞게 백엔드 경험을 더 강조해줘" rows="2"></textarea>
+      <button id="chat-send-btn" type="submit">보내기</button>
+    </form>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

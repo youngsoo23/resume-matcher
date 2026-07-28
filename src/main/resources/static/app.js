@@ -1,0 +1,297 @@
+(() => {
+  const STORAGE_KEYS = {
+    resume: 'rm:resume',
+    jobDescription: 'rm:jobDescription',
+    versions: 'rm:versions',
+    chat: 'rm:chat'
+  };
+
+  const resumeInput = document.getElementById('resume-input');
+  const jdInput = document.getElementById('jd-input');
+  const savedIndicator = document.getElementById('resume-saved-indicator');
+  const resumeFileInput = document.getElementById('resume-file-input');
+  const resumeFileBtn = document.getElementById('resume-file-btn');
+  const resumeFileName = document.getElementById('resume-file-name');
+  const versionList = document.getElementById('version-list');
+  const clearVersionsBtn = document.getElementById('clear-versions-btn');
+  const copyBtn = document.getElementById('copy-btn');
+  const downloadBtn = document.getElementById('download-btn');
+  const chatMessagesEl = document.getElementById('chat-messages');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send-btn');
+
+  let versions = loadJson(STORAGE_KEYS.versions, []);
+  let chatHistory = loadJson(STORAGE_KEYS.chat, []);
+
+  function loadJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function saveJson(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function initFields() {
+    resumeInput.value = localStorage.getItem(STORAGE_KEYS.resume) || '';
+    jdInput.value = localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
+  }
+
+  let saveTimer = null;
+  function debouncedSave(key, value, indicatorEl) {
+    localStorage.setItem(key, value);
+    if (indicatorEl) {
+      indicatorEl.textContent = '저장됨';
+      indicatorEl.classList.add('visible');
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => indicatorEl.classList.remove('visible'), 1200);
+    }
+  }
+
+  resumeInput.addEventListener('input', () => {
+    debouncedSave(STORAGE_KEYS.resume, resumeInput.value, savedIndicator);
+  });
+  jdInput.addEventListener('input', () => {
+    localStorage.setItem(STORAGE_KEYS.jobDescription, jdInput.value);
+  });
+
+  resumeFileBtn.addEventListener('click', () => resumeFileInput.click());
+
+  resumeFileInput.addEventListener('change', async () => {
+    const file = resumeFileInput.files[0];
+    if (!file) return;
+
+    resumeFileName.textContent = file.name;
+    const ext = file.name.split('.').pop().toLowerCase();
+    resumeFileBtn.disabled = true;
+
+    try {
+      let text;
+      if (ext === 'pdf') {
+        resumeFileBtn.textContent = '추출 중...';
+        text = await extractPdfText(file);
+      } else {
+        text = await readFileAsText(file);
+      }
+      resumeInput.value = text;
+      debouncedSave(STORAGE_KEYS.resume, text, savedIndicator);
+    } catch (err) {
+      resumeFileName.textContent = '';
+      alert(`파일을 읽지 못했습니다: ${err.message}`);
+    } finally {
+      resumeFileBtn.disabled = false;
+      resumeFileBtn.textContent = '파일 업로드 (.txt, .md, .pdf)';
+      resumeFileInput.value = '';
+    }
+  });
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('파일을 읽을 수 없습니다.'));
+      reader.readAsText(file);
+    });
+  }
+
+  async function extractPdfText(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch('/api/resume/extract', { method: 'POST', body: formData });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || `서버 오류 (${response.status})`);
+    }
+    return data.text;
+  }
+
+  function renderVersions() {
+    versionList.innerHTML = '';
+    if (versions.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'version-empty';
+      li.textContent = '아직 저장된 버전이 없습니다';
+      versionList.appendChild(li);
+      return;
+    }
+    [...versions].reverse().forEach((version) => {
+      const li = document.createElement('li');
+
+      const meta = document.createElement('span');
+      meta.className = 'version-meta';
+      meta.textContent = `${formatTime(version.createdAt)} · ${version.text.slice(0, 40).replace(/\s+/g, ' ')}...`;
+      li.appendChild(meta);
+
+      const actions = document.createElement('span');
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.textContent = '복원';
+      restoreBtn.addEventListener('click', () => {
+        resumeInput.value = version.text;
+        localStorage.setItem(STORAGE_KEYS.resume, version.text);
+      });
+      actions.appendChild(restoreBtn);
+
+      li.appendChild(actions);
+      versionList.appendChild(li);
+    });
+  }
+
+  function formatTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function pushVersion(text) {
+    versions.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, createdAt: new Date().toISOString(), text });
+    saveJson(STORAGE_KEYS.versions, versions);
+    renderVersions();
+  }
+
+  clearVersionsBtn.addEventListener('click', () => {
+    if (!confirm('저장된 모든 버전을 삭제할까요?')) return;
+    versions = [];
+    saveJson(STORAGE_KEYS.versions, versions);
+    renderVersions();
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(resumeInput.value);
+      flashButton(copyBtn, '복사됨!');
+    } catch (e) {
+      flashButton(copyBtn, '복사 실패');
+    }
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([resumeInput.value], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `resume-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function flashButton(btn, text) {
+    const original = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => (btn.textContent = original), 1200);
+  }
+
+  function renderChat() {
+    chatMessagesEl.innerHTML = '';
+    chatHistory.forEach((msg, index) => renderMessage(msg, index));
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  function renderMessage(msg, index) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `chat-message ${msg.role}`;
+    wrapper.textContent = msg.content;
+
+    if (msg.role === 'assistant' && msg.updatedResume) {
+      const actions = document.createElement('div');
+      actions.className = 'resume-diff-actions';
+
+      if (msg.applied) {
+        const label = document.createElement('span');
+        label.className = 'applied-label';
+        label.textContent = '✓ 이 수정본을 적용했습니다';
+        actions.appendChild(label);
+      } else {
+        const applyBtn = document.createElement('button');
+        applyBtn.textContent = '이 수정본 적용';
+        applyBtn.addEventListener('click', () => applyUpdatedResume(index));
+        actions.appendChild(applyBtn);
+      }
+
+      wrapper.appendChild(actions);
+    }
+
+    chatMessagesEl.appendChild(wrapper);
+  }
+
+  function applyUpdatedResume(index) {
+    const msg = chatHistory[index];
+    if (!msg || !msg.updatedResume) return;
+    resumeInput.value = msg.updatedResume;
+    localStorage.setItem(STORAGE_KEYS.resume, msg.updatedResume);
+    pushVersion(msg.updatedResume);
+    msg.applied = true;
+    saveJson(STORAGE_KEYS.chat, chatHistory);
+    renderChat();
+  }
+
+  function appendMessage(role, content, updatedResume) {
+    const msg = { role, content, updatedResume: updatedResume || null, applied: false };
+    chatHistory.push(msg);
+    saveJson(STORAGE_KEYS.chat, chatHistory);
+    renderChat();
+  }
+
+  chatForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    if (!resumeInput.value.trim()) {
+      alert('먼저 이력서를 입력해주세요.');
+      return;
+    }
+
+    appendMessage('user', text);
+    chatInput.value = '';
+    chatSendBtn.disabled = true;
+    chatInput.disabled = true;
+
+    const thinkingEl = document.createElement('div');
+    thinkingEl.className = 'chat-message system';
+    thinkingEl.textContent = 'AI가 답변을 작성 중입니다...';
+    chatMessagesEl.appendChild(thinkingEl);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resume: resumeInput.value,
+          jobDescription: jdInput.value,
+          messages: chatHistory.map((m) => ({ role: m.role, content: m.content }))
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`서버 오류 (${response.status})`);
+      }
+
+      const data = await response.json();
+      appendMessage('assistant', data.reply, data.updatedResume);
+    } catch (err) {
+      appendMessage('system', `오류가 발생했습니다: ${err.message}`);
+    } finally {
+      thinkingEl.remove();
+      chatSendBtn.disabled = false;
+      chatInput.disabled = false;
+      chatInput.focus();
+    }
+  });
+
+  chatInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      chatForm.requestSubmit();
+    }
+  });
+
+  initFields();
+  renderVersions();
+  renderChat();
+})();
