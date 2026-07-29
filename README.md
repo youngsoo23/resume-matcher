@@ -10,7 +10,8 @@
 4. **적용/버전 관리**: 제안된 수정본을 적용해 현재 이력서로 교체하고, 이전 버전을 확인·복원할 수 있다.
 5. **내보내기**: 최종본을 복사하거나 다운로드한다.
 
-자세한 기획 배경은 [PLANNING.md](PLANNING.md) 참고.
+자세한 기획 배경은 [PLANNING.md](PLANNING.md), 항목별 상세 기획 문서는
+[docs/planning/](docs/planning/00-index.md) 참고.
 
 ## 아키텍처
 
