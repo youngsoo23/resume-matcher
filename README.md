@@ -61,6 +61,19 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 기본적으로 `http://localhost:8080` 에서 정적 프론트엔드와 API가 함께 서빙된다.
 
+### Docker로 실행하기
+
+Java나 Gradle을 로컬에 설치하지 않고도 Docker만으로 실행할 수 있다.
+
+```bash
+cp .env.example .env
+# .env 파일에 ANTHROPIC_API_KEY 값을 채운다
+
+docker compose up --build
+```
+
+`http://localhost:8080` 에서 접속하면 된다.
+
 ## 기술 스택
 
 - Kotlin, Spring Boot (WebMVC)

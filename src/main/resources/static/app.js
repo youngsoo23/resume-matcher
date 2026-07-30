@@ -20,9 +20,17 @@
   const chatForm = document.getElementById('chat-form');
   const chatInput = document.getElementById('chat-input');
   const chatSendBtn = document.getElementById('chat-send-btn');
+  const appLayout = document.getElementById('app-layout');
+  const previewPanel = document.getElementById('preview-panel');
+  const previewText = document.getElementById('preview-text');
+  const previewCloseBtn = document.getElementById('preview-close-btn');
+  const previewApplyBtn = document.getElementById('preview-apply-btn');
+  const previewCopyBtn = document.getElementById('preview-copy-btn');
+  const previewDownloadBtn = document.getElementById('preview-download-btn');
 
   let versions = loadJson(STORAGE_KEYS.versions, []);
   let chatHistory = loadJson(STORAGE_KEYS.chat, []);
+  let previewIndex = null;
 
   function loadJson(key, fallback) {
     try {
@@ -200,6 +208,11 @@
       const actions = document.createElement('div');
       actions.className = 'resume-diff-actions';
 
+      const previewBtn = document.createElement('button');
+      previewBtn.textContent = '미리보기';
+      previewBtn.addEventListener('click', () => showPreview(index));
+      actions.appendChild(previewBtn);
+
       if (msg.applied) {
         const label = document.createElement('span');
         label.className = 'applied-label';
@@ -227,7 +240,60 @@
     msg.applied = true;
     saveJson(STORAGE_KEYS.chat, chatHistory);
     renderChat();
+    if (previewIndex === index) {
+      updatePreviewApplyState();
+    }
   }
+
+  function showPreview(index) {
+    const msg = chatHistory[index];
+    if (!msg || !msg.updatedResume) return;
+    previewIndex = index;
+    previewText.textContent = msg.updatedResume;
+    previewPanel.hidden = false;
+    appLayout.classList.add('layout--three-col');
+    updatePreviewApplyState();
+  }
+
+  function closePreview() {
+    previewPanel.hidden = true;
+    previewIndex = null;
+    appLayout.classList.remove('layout--three-col');
+  }
+
+  function updatePreviewApplyState() {
+    const msg = chatHistory[previewIndex];
+    const applied = !!(msg && msg.applied);
+    previewApplyBtn.disabled = applied;
+    previewApplyBtn.textContent = applied ? '적용됨' : '적용';
+  }
+
+  previewCloseBtn.addEventListener('click', closePreview);
+
+  previewApplyBtn.addEventListener('click', () => {
+    if (previewIndex !== null) {
+      applyUpdatedResume(previewIndex);
+    }
+  });
+
+  previewCopyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(previewText.textContent);
+      flashButton(previewCopyBtn, '복사됨!');
+    } catch (e) {
+      flashButton(previewCopyBtn, '복사 실패');
+    }
+  });
+
+  previewDownloadBtn.addEventListener('click', () => {
+    const blob = new Blob([previewText.textContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `resume-preview-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 
   function appendMessage(role, content, updatedResume) {
     const msg = { role, content, updatedResume: updatedResume || null, applied: false };
@@ -274,6 +340,9 @@
 
       const data = await response.json();
       appendMessage('assistant', data.reply, data.updatedResume);
+      if (data.updatedResume) {
+        showPreview(chatHistory.length - 1);
+      }
     } catch (err) {
       appendMessage('system', `오류가 발생했습니다: ${err.message}`);
     } finally {

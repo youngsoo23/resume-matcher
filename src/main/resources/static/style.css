@@ -48,9 +48,28 @@ body {
   min-height: 0;
 }
 
+.layout.layout--three-col {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 1200px) {
+  .layout.layout--three-col {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .layout.layout--three-col .preview-panel {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 900px) {
-  .layout {
+  .layout,
+  .layout.layout--three-col {
     grid-template-columns: 1fr;
+  }
+
+  .layout.layout--three-col .preview-panel {
+    grid-column: auto;
   }
 }
 
@@ -276,4 +295,23 @@ button:disabled {
 
 .chat-form button {
   align-self: flex-end;
+}
+
+.preview-panel {
+  border-color: var(--accent);
+}
+
+.preview-text {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: #0d0f13;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
