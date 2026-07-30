@@ -3,7 +3,8 @@
     resume: 'rm:resume',
     jobDescription: 'rm:jobDescription',
     versions: 'rm:versions',
-    chat: 'rm:chat'
+    chat: 'rm:chat',
+    provider: 'rm:provider'
   };
 
   const resumeInput = document.getElementById('resume-input');
@@ -16,6 +17,7 @@
   const clearVersionsBtn = document.getElementById('clear-versions-btn');
   const copyBtn = document.getElementById('copy-btn');
   const downloadBtn = document.getElementById('download-btn');
+  const providerSelect = document.getElementById('provider-select');
   const chatMessagesEl = document.getElementById('chat-messages');
   const chatForm = document.getElementById('chat-form');
   const chatInput = document.getElementById('chat-input');
@@ -27,6 +29,17 @@
   const previewApplyBtn = document.getElementById('preview-apply-btn');
   const previewCopyBtn = document.getElementById('preview-copy-btn');
   const previewDownloadBtn = document.getElementById('preview-download-btn');
+  const loadingModal = document.getElementById('loading-modal');
+  const loadingModalText = document.getElementById('loading-modal-text');
+
+  function showLoadingModal(text) {
+    loadingModalText.textContent = text;
+    loadingModal.hidden = false;
+  }
+
+  function hideLoadingModal() {
+    loadingModal.hidden = true;
+  }
 
   let versions = loadJson(STORAGE_KEYS.versions, []);
   let chatHistory = loadJson(STORAGE_KEYS.chat, []);
@@ -48,7 +61,12 @@
   function initFields() {
     resumeInput.value = localStorage.getItem(STORAGE_KEYS.resume) || '';
     jdInput.value = localStorage.getItem(STORAGE_KEYS.jobDescription) || '';
+    providerSelect.value = localStorage.getItem(STORAGE_KEYS.provider) || 'claude';
   }
+
+  providerSelect.addEventListener('change', () => {
+    localStorage.setItem(STORAGE_KEYS.provider, providerSelect.value);
+  });
 
   let saveTimer = null;
   function debouncedSave(key, value, indicatorEl) {
@@ -178,14 +196,98 @@
   });
 
   downloadBtn.addEventListener('click', () => {
-    const blob = new Blob([resumeInput.value], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resume-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadResumeAsPdf(resumeInput.value, downloadBtn);
   });
+
+  async function downloadResumeAsPdf(text, triggerBtn) {
+    if (!text.trim()) {
+      alert('다운로드할 이력서 내용이 없습니다.');
+      return;
+    }
+
+    triggerBtn.disabled = true;
+    showLoadingModal('AI가 이력서를 PDF 템플릿에 맞춰 변환하고 있습니다...');
+
+    try {
+      const response = await fetch('/api/resume/format', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume: text, provider: providerSelect.value })
+      });
+
+      if (!response.ok) {
+        throw new Error(`서버 오류 (${response.status})`);
+      }
+
+      const data = await response.json();
+      openResumePrintWindow(data.html);
+    } catch (err) {
+      alert(`PDF 포맷 변환에 실패했습니다: ${err.message}`);
+    } finally {
+      triggerBtn.disabled = false;
+      hideLoadingModal();
+    }
+  }
+
+  function openResumePrintWindow(bodyHtml) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('팝업이 차단되어 미리보기를 열 수 없습니다. 브라우저의 팝업 차단을 해제해주세요.');
+      return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>이력서</title>
+<style>
+  @page { margin: 20mm 18mm; }
+  body { margin: 0; }
+  .resume {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.6;
+    font-size: 13px;
+  }
+  .name { font-size: 28px; margin: 0 0 6px; font-weight: 700; }
+  .contact { color: #555; margin-bottom: 16px; font-size: 12px; }
+  .summary { margin: 0 0 10px; }
+  .highlights { margin: 0 0 20px; padding-left: 20px; }
+  .highlights li { margin-bottom: 6px; }
+  .section h2 {
+    font-size: 16px;
+    margin: 26px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #333;
+  }
+  .entry { padding: 14px 0; border-bottom: 1px solid #ddd; }
+  .entry:last-child { border-bottom: none; }
+  .entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-weight: 700;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .entry-period { font-weight: 400; color: #555; font-size: 12px; white-space: nowrap; }
+  .entry-body h3 { font-size: 13px; margin: 10px 0 4px; }
+  .entry-body ul { margin: 0 0 8px; padding-left: 20px; }
+  .entry-body li { margin-bottom: 3px; }
+  .tech-line { font-size: 12px; color: #444; margin-top: 8px; }
+  .skill-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .skill-tag { border: 1px solid #ccc; border-radius: 14px; padding: 4px 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  }
 
   function flashButton(btn, text) {
     const original = btn.textContent;
@@ -286,13 +388,7 @@
   });
 
   previewDownloadBtn.addEventListener('click', () => {
-    const blob = new Blob([previewText.textContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resume-preview-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadResumeAsPdf(previewText.textContent, previewDownloadBtn);
   });
 
   function appendMessage(role, content, updatedResume) {
@@ -330,7 +426,8 @@
         body: JSON.stringify({
           resume: resumeInput.value,
           jobDescription: jdInput.value,
-          messages: chatHistory.map((m) => ({ role: m.role, content: m.content }))
+          messages: chatHistory.map((m) => ({ role: m.role, content: m.content })),
+          provider: providerSelect.value
         })
       });
 

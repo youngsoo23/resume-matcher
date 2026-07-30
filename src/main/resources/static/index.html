@@ -34,7 +34,7 @@
 
     <div class="field export-actions">
       <button id="copy-btn" type="button">이력서 복사</button>
-      <button id="download-btn" type="button">텍스트 다운로드</button>
+      <button id="download-btn" type="button">PDF 다운로드</button>
     </div>
 
     <div class="field">
@@ -47,6 +47,13 @@
   </section>
 
   <section class="panel chat-panel">
+    <div class="chat-header">
+      <label for="provider-select">AI 모델</label>
+      <select id="provider-select">
+        <option value="claude">Claude (Sonnet 5)</option>
+        <option value="gemini">Gemini (무료 티어)</option>
+      </select>
+    </div>
     <div id="chat-messages" class="chat-messages"></div>
     <form id="chat-form" class="chat-form">
       <textarea id="chat-input" placeholder="예: 이 JD에 맞게 백엔드 경험을 더 강조해줘" rows="2"></textarea>
@@ -63,10 +70,17 @@
     <div class="field export-actions">
       <button id="preview-apply-btn" type="button">적용</button>
       <button id="preview-copy-btn" type="button">복사</button>
-      <button id="preview-download-btn" type="button">다운로드</button>
+      <button id="preview-download-btn" type="button">PDF 다운로드</button>
     </div>
   </section>
 </main>
+
+<div id="loading-modal" class="loading-modal" hidden>
+  <div class="loading-modal-content">
+    <div class="spinner"></div>
+    <p id="loading-modal-text">PDF 포맷 변환 중...</p>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
