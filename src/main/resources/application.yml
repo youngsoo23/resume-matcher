@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: resume-matcher
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+anthropic:
+  api-key: "${ANTHROPIC_API_KEY:}"
+  model: claude-sonnet-5
