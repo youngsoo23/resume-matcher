@@ -11,6 +11,12 @@
 - PDF 업로드 → 서버 텍스트 추출 (`/api/resume/extract`)
 - 버전 전체 삭제 기능
 - 적용된 수정본에 대한 채팅 메시지 라벨 고정("✓ 적용했습니다")
+- Docker 컨테이너화 (`Dockerfile` + `docker-compose.yml`) — Java/Gradle 설치 없이 실행 가능
+- `application.properties` → `application.yml` 전환
+- AI 모델 교체 이력(Opus 5 → Haiku 4.5 → Sonnet 5) 및 `maxTokens` 부족으로 인한
+  응답 잘림 버그 수정 (자세한 내용: [06-infra.md](06-infra.md))
+- **멀티 AI 프로바이더 선택**: Claude 외 Gemini(무료 티어)를 추가해 채팅 패널에서
+  선택할 수 있게 함 (`ChatProvider` 추상화)
 
 ## 다음에 고려할 것 (우선순위 순, 확정 아님)
 1. **오류 재시도**: 채팅 요청 실패 시 "다시 시도" 버튼 (현재는 메시지 다시 입력해야 함).
